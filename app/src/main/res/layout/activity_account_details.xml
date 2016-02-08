@@ -1,0 +1,82 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.aimbrain.bankingdemo.AccountDetailsActivity">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="82dp"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentStart="true"
+        android:id="@+id/fragmentAccountDetailsContainer">
+    </FrameLayout>
+
+    <RelativeLayout
+        android:paddingLeft="@dimen/activity_horizontal_margin"
+        android:paddingRight="@dimen/activity_horizontal_margin"
+        android:paddingTop="@dimen/activity_vertical_margin"
+        android:paddingBottom="@dimen/activity_vertical_margin"
+        android:layout_below="@id/fragmentAccountDetailsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <TextView android:text="Owner" android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/ownerTextView"
+            android:layout_centerHorizontal="true"
+            android:textSize="@dimen/abc_text_size_large_material" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="John Galt"
+            android:id="@+id/ownerValueTextView"
+            android:layout_below="@+id/ownerTextView"
+            android:layout_centerHorizontal="true"
+            android:textStyle="bold"
+            android:textSize="@dimen/abc_text_size_large_material"
+            android:textColor="#000000" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Balance"
+            android:id="@+id/balanceTextView"
+            android:layout_below="@+id/ownerValueTextView"
+            android:layout_centerHorizontal="true"
+            android:textSize="@dimen/abc_text_size_large_material" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="£2034.42"
+            android:id="@+id/balanceValueTextView"
+            android:layout_below="@+id/balanceTextView"
+            android:layout_centerHorizontal="true"
+            android:textStyle="bold"
+            android:textSize="@dimen/abc_text_size_large_material"
+            android:textColor="#000000" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Make payment"
+            android:id="@+id/paymentButton"
+            android:onClick="makePaymentClick"
+            android:layout_below="@+id/balanceValueTextView"
+            android:layout_centerHorizontal="true" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="View transactions"
+            android:id="@+id/transactionsButtons"
+            android:onClick="viewTransactionsClick"
+            android:layout_below="@+id/paymentButton"
+            android:layout_centerHorizontal="true" />
+
+    </RelativeLayout>
+
+</RelativeLayout>

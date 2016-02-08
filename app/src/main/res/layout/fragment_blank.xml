@@ -1,0 +1,144 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.aimbrain.bankingdemo.fragments.ToastFragment"
+    android:background="#ffcbc723"
+    android:orientation="horizontal">
+
+
+
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" android:layout_width="wrap_content"
+    android:layout_height="match_parent"
+    tools:context="com.aimbrain.bankingdemo.fragments.ToastFragment"
+    android:background="#00000000"
+    android:orientation="vertical">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/statusLabelTextView"
+        android:textColor="#ffffffff"
+        android:text="Status:"
+        android:textSize="9dp"
+        android:layout_marginLeft="10dp"
+        android:layout_marginTop="3dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Progress:"
+        android:textColor="#ffffffff"
+        android:id="@+id/scoreLabelTextView"
+        android:textSize="9dp"
+        android:layout_marginLeft="10dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:text="User email:"
+        android:textColor="#ffffffff"
+        android:id="@+id/userEmailLabelTextView"
+        android:textSize="9dp"
+        android:layout_marginLeft="10dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="User id:"
+        android:singleLine="true"
+        android:textColor="#ffffffff"
+        android:id="@+id/uuidLabelTextView"
+        android:textSize="9dp"
+        android:layout_marginLeft="10dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:text="Session id:"
+        android:textColor="#ffffffff"
+        android:id="@+id/sessionIdLabelTextView"
+        android:textSize="9dp"
+        android:layout_marginLeft="10dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Last updated:"
+        android:textColor="#ffffffff"
+        android:id="@+id/lastUpdatedLabelTextView"
+        android:textSize="9dp"
+        android:layout_marginLeft="10dp"/>
+
+</LinearLayout>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
+android:layout_height="match_parent"
+tools:context="com.aimbrain.bankingdemo.fragments.ToastFragment"
+android:background="#00000000"
+android:orientation="vertical">
+
+<TextView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:id="@+id/statusTextView"
+    android:textColor="#ffffffff"
+    android:text=""
+    android:textSize="9dp"
+    android:layout_marginLeft="10dp"
+    android:layout_marginTop="3dp"/>
+
+<TextView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text=""
+    android:textColor="#ffffffff"
+    android:id="@+id/scoreTextView"
+    android:textSize="9dp"
+    android:layout_marginLeft="10dp"/>
+
+<TextView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text=""
+    android:singleLine="true"
+    android:textColor="#ffffffff"
+    android:id="@+id/userEmailTextView"
+    android:textSize="9dp"
+    android:layout_marginLeft="10dp"/>
+
+<TextView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text=""
+    android:singleLine="true"
+    android:textColor="#ffffffff"
+    android:id="@+id/uuidTextView"
+    android:textSize="9dp"
+    android:layout_marginLeft="10dp"/>
+
+<TextView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text=""
+    android:singleLine="true"
+    android:textColor="#ffffffff"
+    android:id="@+id/sessionIdTextView"
+    android:textSize="9dp"
+    android:layout_marginLeft="10dp"/>
+
+<TextView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text=""
+    android:textColor="#ffffffff"
+    android:id="@+id/lastUpdatedTextView"
+    android:textSize="9dp"
+    android:layout_marginLeft="10dp"/>
+
+</LinearLayout>
+</LinearLayout>
