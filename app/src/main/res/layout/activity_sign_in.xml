@@ -65,7 +65,7 @@
             android:layout_alignParentStart="true"
             android:orientation="vertical"
             android:layout_below="@+id/signInErrorTextView"
-            >
+            android:id="@+id/linearLayout">
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -182,11 +182,15 @@
             android:layout_weight="1"
             android:id="@+id/keyboardFourthLine"
             android:layout_below="@+id/keyboardThirdLine">
-            <View
+            <ImageButton
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                />
+                android:text="0"
+                android:id="@+id/faceEnrollButton"
+                android:onClick="faceEnrollButtonClick"
+                android:src="@drawable/ic_face_enroll"
+                android:tint="#000000" />
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -225,3 +229,4 @@
         android:textIsSelectable="false" />
 
 </RelativeLayout>
+

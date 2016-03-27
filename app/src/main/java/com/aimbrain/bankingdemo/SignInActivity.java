@@ -1,10 +1,13 @@
 package com.aimbrain.bankingdemo;
 
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.util.Log;
@@ -13,6 +16,15 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import com.aimbrain.sdk.faceCapture.FaceCaptureActivity;
+import com.aimbrain.sdk.models.FaceAuthenticateModel;
+import com.aimbrain.sdk.models.FaceCompareModel;
+import com.aimbrain.sdk.models.FaceEnrollModel;
+import com.aimbrain.sdk.models.SessionModel;
+import com.aimbrain.sdk.server.FaceActions;
+import com.aimbrain.sdk.server.FaceCompareCallback;
+import com.aimbrain.sdk.server.PhotosAuthenticateCallback;
+import com.aimbrain.sdk.server.PhotosEnrollCallback;
 import com.android.volley.NetworkResponse;
 import com.android.volley.TimeoutError;
 import com.android.volley.VolleyError;
@@ -28,12 +40,29 @@ import com.aimbrain.sdk.server.SessionCallback;
 import com.aimbrain.bankingdemo.helpers.Constants;
 import com.aimbrain.bankingdemo.score.ScoreManager;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.net.ConnectException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
 
 public class SignInActivity extends AppCompatActivity {
+
+    private static final int enrollmentRequestcode = 1542;
+    private static final int authenticationRequestcode = 1543;
+    private static final String photoAuthUpperText = "To authenticate please face the camera directly and press 'camera' button";
+    private static final String photoLowerText = "Position your face fully within the outline with eyes between the lines.";
+    private static final String[] enrollStepsTexts = {
+            "To enroll please face the camera directly and press 'camera' button",
+            "Face the camera slightly from the top and press 'camera' button",
+            "Face the camera slightly from the bottom and press 'camera' button",
+            "Face the camera slightly from the left and press 'camera' button",
+            "Face the camera slightly from the right and press 'camera' button"
+    };
+
 
     private Button signInButton;
     private EditText pinEditText;
@@ -41,10 +70,14 @@ public class SignInActivity extends AppCompatActivity {
     private TextView errorTextView;
     private ProgressDialog progressDialog;
     private TextView titleTextView;
+    private int triesAmount;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (savedInstanceState != null) {
+            this.triesAmount = savedInstanceState.getInt("triesAmount");
+        }
         setContentView(R.layout.activity_sign_in);
 
         Set<View> ignoredViews = new HashSet<>();
@@ -58,9 +91,9 @@ public class SignInActivity extends AppCompatActivity {
         if (email != null && !email.isEmpty())
             this.enteredEmailEditText.setEnabled(false);
 
-        titleTextView = (TextView)findViewById(R.id.titleTextView);
+        titleTextView = (TextView) findViewById(R.id.titleTextView);
         titleTextView.setText(getString(R.string.sign_in_title) + " " + getPin());
-        this.errorTextView = (TextView)findViewById(R.id.signInErrorTextView);
+        this.errorTextView = (TextView) findViewById(R.id.signInErrorTextView);
         this.pinEditText = (EditText) findViewById(R.id.pinEditText);
         pinEditText.setKeyListener(null);
 
@@ -72,7 +105,7 @@ public class SignInActivity extends AppCompatActivity {
                 String pin = pinEditText.getText().toString();
                 if (pin.equals(getPin())) {
                     try {
-                        createSession();
+                        createSessionUsingPin();
                     } catch (ConnectException | InternalException e) {
                         hideSpinner();
                         errorTextView.setText(e.getMessage());
@@ -86,6 +119,16 @@ public class SignInActivity extends AppCompatActivity {
 
         getSupportActionBar().setTitle("Sign in");
         SensitiveViewGuard.addView(getWindow().getDecorView());
+    }
+
+
+    public void faceEnrollButtonClick(View view) {
+        try {
+            createSessionUsingPhoto();
+        } catch (ConnectException | InternalException e) {
+            hideSpinner();
+            errorTextView.setText(e.getMessage());
+        }
     }
 
     @Override
@@ -106,42 +149,268 @@ public class SignInActivity extends AppCompatActivity {
         sendCollectedData();
     }
 
-    private void createSession() throws ConnectException, InternalException {
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt("triesAmount", triesAmount);
+    }
+
+    @Override
+    protected void onPause() {
+        hideSpinner();
+        super.onPause();
+    }
+
+    private void createSessionUsingPin() throws ConnectException, InternalException {
         progressDialog = Spinner.showSpinner(this);
         ScoreManager.getInstance().clearCache();
         Manager.getInstance().createSession(getUserId(), getApplicationContext(), new SessionCallback() {
                     @Override
-                    public void onSessionCreated(String session) {
+                    public void onSessionCreated(SessionModel session) {
                         hideSpinner();
-                        Log.i("SESSION", "session created: " + session);
-                        Intent intent = new Intent(SignInActivity.this, DemoBankActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
+                        Log.i("SESSION", "session id: " + session.getSessionId());
+                        Log.i("SESSION", "session face status: " + session.getFaceStatus());
+                        Log.i("SESSION", "session behaviour status: " + session.getBehaviourStatus());
+                        startDemoBankActivity();
                     }
                 }, new AMBNResponseErrorListener() {
                     @Override
                     public void onErrorResponse(VolleyError error) {
-                        hideSpinner();
-                        error.printStackTrace();
-
-                        String json = null;
-
-                        NetworkResponse response = error.networkResponse;
-                        if (response != null && response.data != null) {
-                            json = new String(response.data);
-                            json = trimMessage(json, "error");
-                            if (json != null)
-                                errorTextView.setText(json);
-                            else
-                                errorTextView.setText("Server problem. Unprocessable response");
-                        } else if (error instanceof TimeoutError)
-                            errorTextView.setText("Unable to connect to server. Request timed out.");
-                        else
-                            errorTextView.setText("Unable to connect to server. Please check network settings.");
+                        errorTextView.setText(getErrorMessage(error));
                     }
                 }
         );
 
+    }
+
+    private String getErrorMessage(VolleyError error) {
+        hideSpinner();
+        String json = null;
+        String errorMessage = null;
+        NetworkResponse response = error.networkResponse;
+        if (response != null && response.data != null) {
+            json = new String(response.data);
+            JSONObject jsonObject = null;
+            try {
+                jsonObject = new JSONObject(json);
+                errorMessage = jsonObject.getString("error");
+            } catch (JSONException e1) {
+                e1.printStackTrace();
+            }
+            if (errorMessage != null)
+                return errorMessage;
+            else
+                return "Server problem. Unprocessable response";
+        } else if (error instanceof TimeoutError)
+            return "Unable to connect to server. Request timed out.";
+        else
+            return "Unable to connect to server. Please check network settings.";
+    }
+
+    private void createSessionUsingPhoto() throws ConnectException, InternalException {
+        progressDialog = Spinner.showSpinner(this);
+        ScoreManager.getInstance().clearCache();
+        Manager.getInstance().createSession(getUserId(), getApplicationContext(), new SessionCallback() {
+                    @Override
+                    public void onSessionCreated(SessionModel session) {
+                        Log.i("SESSION", "session id: " + session.getSessionId());
+                        Log.i("SESSION", "session face status: " + session.getFaceStatus());
+                        Log.i("SESSION", "session behaviour status: " + session.getBehaviourStatus());
+                        if (session.getFaceStatus() == SessionModel.UNAVAILABLE) {
+                            new AlertDialog.Builder(SignInActivity.this)
+                                    .setTitle("Face detection unavailable")
+                                    .setMessage("Face detection is currently not supported.")
+                                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                                        public void onClick(DialogInterface dialog, int which) {
+                                        }
+                                    })
+                                    .show();
+                        } else if (session.getFaceStatus() == SessionModel.ENROLLED) {
+                            authenticateWithPhotos();
+                        } else if (session.getFaceStatus() == SessionModel.NOT_ENROLLED) {
+                            showEnrollmentDialog();
+                        }
+                    }
+                }, new AMBNResponseErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        errorTextView.setText(getErrorMessage(error));
+                    }
+                }
+        );
+
+    }
+
+    private void showEnrollmentDialog() {
+        new AlertDialog.Builder(SignInActivity.this)
+                .setMessage("Please enroll  before using Facial authentication")
+                .setPositiveButton("Continue", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        triesAmount = 0;
+                        enrollWithPhotos();
+                    }
+                }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                hideSpinner();
+            }
+        }).show();
+    }
+
+    private void enrollWithPhotos() {
+
+        if (triesAmount < 5) {
+            openFaceImageCaptureActivity(enrollmentRequestcode, enrollStepsTexts[triesAmount], photoLowerText);
+        } else {
+            hideSpinner();
+            new AlertDialog.Builder(SignInActivity.this)
+                    .setMessage("Enrollment finished successfully")
+                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+
+                        }
+                    }).show();
+        }
+    }
+
+    private void authenticateWithPhotos() {
+        openFaceImageCaptureActivity(authenticationRequestcode, photoAuthUpperText, photoLowerText);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        switch (requestCode) {
+            case enrollmentRequestcode:
+                if(resultCode != RESULT_OK){
+                    return;
+                }
+
+                try {
+                    Manager.getInstance().sendProvidedPhotosToEnroll(FaceCaptureActivity.images, new PhotosEnrollCallback() {
+                        @Override
+                        public void success(FaceEnrollModel faceEnrollModel) {
+                            triesAmount++;
+                            enrollWithPhotos();
+                        }
+
+                        @Override
+                        public void failure(VolleyError volleyError) {
+                            showRetryPhotosEnrollmentDialog("Please re-take the picture, reason: " + getErrorMessage(volleyError));
+                        }
+
+                        @Override
+                        public void beforeSendRequest() {
+                            SignInActivity.this.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    progressDialog = Spinner.showSpinner(SignInActivity.this);
+                                }
+                            });
+                        }
+                    });
+                } catch (ConnectException | InternalException e) {
+                    hideSpinner();
+                    showRetryPhotosEnrollmentDialog("Please re-take the picture, reason: " + e.getMessage());
+                } catch (SessionException e) {
+                    e.printStackTrace();
+                }
+                break;
+            case authenticationRequestcode:
+                if(resultCode != RESULT_OK){
+                    return;
+                }
+                try {
+                    Manager.getInstance().sendProvidedPhotosToAuthenticate(FaceCaptureActivity.images, new PhotosAuthenticateCallback() {
+
+                        @Override
+                        public void success(FaceAuthenticateModel faceAuthenticateModel) {
+                            hideSpinner();
+                            if (faceAuthenticateModel.getScore() >= 0.5 && faceAuthenticateModel.getLiveliness() >= 0.5) {
+                                startDemoBankActivity();
+                            } else {
+                                if(faceAuthenticateModel.getLiveliness() < 0.5){
+                                    showRetryPhotosAuthDialog(String.format("Your face matched to %.0f%% but we believe it was a static image", faceAuthenticateModel.getScore() * 100));
+                                }else {
+                                    showRetryPhotosAuthDialog("Access denied");
+                                }
+                            }
+                        }
+
+                        @Override
+                        public void failure(VolleyError volleyError) {
+                            showRetryPhotosAuthDialog("Please re-take the picutre, reason: " + getErrorMessage(volleyError));
+                        }
+
+                        @Override
+                        public void beforeSendRequest() {
+                            SignInActivity.this.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    progressDialog = Spinner.showSpinner(SignInActivity.this);
+                                }
+                            });
+                        }
+                    });
+                } catch (ConnectException | InternalException e) {
+                    hideSpinner();
+                    showRetryPhotosAuthDialog(e.getMessage());
+                } catch (SessionException e) {
+                    e.printStackTrace();
+                }
+                break;
+        }
+    }
+
+
+    private void openFaceImageCaptureActivity(int requestCode, String upperText, String lowerText){
+        Intent intent = new Intent(this, FaceCaptureActivity.class);
+        intent.putExtra(FaceCaptureActivity.EXTRA_UPPER_TEXT, upperText);
+        intent.putExtra(FaceCaptureActivity.EXTRA_LOWER_TEXT, lowerText);
+        startActivityForResult(intent, requestCode);
+
+    }
+
+    private void showRetryPhotosAuthDialog(String message) {
+        new AlertDialog.Builder(SignInActivity.this)
+                .setMessage(message)
+                .setPositiveButton("Retry", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        try {
+                            createSessionUsingPhoto();
+                        } catch (ConnectException | InternalException e) {
+                            hideSpinner();
+                            errorTextView.setText(e.getMessage());
+                        }
+                    }
+                }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+
+            }
+        }).show();
+    }
+
+    private void showRetryPhotosEnrollmentDialog(String message) {
+        new AlertDialog.Builder(SignInActivity.this)
+                .setTitle("Error")
+                .setMessage(message + (message.endsWith(".") ? " " : ". ") + " Do you want to try again?")
+                .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        enrollWithPhotos();
+                    }
+                }).setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+
+            }
+        }).show();
+    }
+
+    private void startDemoBankActivity() {
+        Intent intent = new Intent(SignInActivity.this, DemoBankActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
     }
 
     private String getUserId() {
@@ -153,6 +422,7 @@ public class SignInActivity extends AppCompatActivity {
         SharedPreferences prefs = this.getSharedPreferences(Constants.SHARED_PREFS_TAG, Context.MODE_PRIVATE);
         return prefs.getString(Constants.USER_EMAIL, null);
     }
+
     public String getPin() {
         SharedPreferences prefs = this.getSharedPreferences(Constants.SHARED_PREFS_TAG, Context.MODE_PRIVATE);
         return prefs.getString(Constants.PIN_TAG, null);
@@ -173,14 +443,14 @@ public class SignInActivity extends AppCompatActivity {
             currentText.delete(currentText.length() - 1, currentText.length());
     }
 
-    public void hideSpinner(){
-        if(progressDialog != null && progressDialog.isShowing()) {
+    public void hideSpinner() {
+        if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
             progressDialog = null;
         }
     }
 
-    private void sendCollectedData(){
+    private void sendCollectedData() {
         try {
             Manager.getInstance().submitCollectedData(new ScoreCallback() {
                 @Override
@@ -189,7 +459,7 @@ public class SignInActivity extends AppCompatActivity {
                     ScoreManager.getInstance().scoreChanged(scoreModel, System.currentTimeMillis());
                 }
             });
-        } catch (InternalException | ConnectException | SessionException e){
+        } catch (InternalException | ConnectException | SessionException e) {
             e.printStackTrace();
         }
     }

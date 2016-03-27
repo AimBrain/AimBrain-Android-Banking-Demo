@@ -22,6 +22,8 @@ import com.aimbrain.bankingdemo.helpers.Constants;
 import com.aimbrain.bankingdemo.score.ScoreListener;
 import com.aimbrain.bankingdemo.score.ScoreManager;
 import com.aimbrain.bankingdemo.MyApplication;
+import com.aimbrain.sdk.models.SessionModel;
+
 /**
  * A simple {@link Fragment} subclass.
  * Use the {@link ToastFragment#newInstance} factory method to
@@ -92,7 +94,7 @@ public class ToastFragment extends Fragment implements ScoreListener {
         emailTextView.setText(getUserEmail());
 
         sessionTextView = (TextView)view.findViewById(R.id.sessionIdTextView);
-        sessionTextView.setText(getSession());
+        sessionTextView.setText(getSession().getSessionId());
 
         statusTextView = (TextView)view.findViewById(R.id.statusTextView);
         scoreTextView = (TextView)view.findViewById(R.id.scoreTextView);
@@ -209,7 +211,7 @@ public class ToastFragment extends Fragment implements ScoreListener {
         SharedPreferences prefs = this.getActivity().getSharedPreferences(Constants.SHARED_PREFS_TAG, Context.MODE_PRIVATE);
         return prefs.getString(Constants.USER_EMAIL, "-");
     }
-    private String getSession() {
+    private SessionModel getSession() {
        return Manager.getInstance().getSession();
     }
 }
