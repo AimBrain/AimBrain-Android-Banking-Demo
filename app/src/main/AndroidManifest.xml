@@ -51,7 +51,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name="com.aimbrain.sdk.faceCapture.FaceCaptureActivity"/>
+        <activity android:name="com.aimbrain.sdk.faceCapture.PhotoFaceCaptureActivity"/>
+        <activity android:name="com.aimbrain.sdk.faceCapture.VideoFaceCaptureActivity"/>
         <meta-data
             android:name="io.fabric.ApiKey"
             android:value="FABRIC_API_KEY" />

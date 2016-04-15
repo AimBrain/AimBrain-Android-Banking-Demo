@@ -9,6 +9,7 @@ import com.aimbrain.sdk.Manager;
 import com.aimbrain.bankingdemo.applicationState.ApplicationState;
 import com.aimbrain.bankingdemo.helpers.Constants;
 import com.crashlytics.android.Crashlytics;
+import com.crashlytics.android.core.CrashlyticsCore;
 
 import java.util.UUID;
 
@@ -20,7 +21,9 @@ public class MyApplication extends AMBNApplication{
     @Override
     public void onCreate() {
         super.onCreate();
-        Fabric.with(this, new Crashlytics());
+        Fabric.with(this, new Crashlytics.Builder()
+                .core(new CrashlyticsCore.Builder().disabled(BuildConfig.DEBUG).build())
+                .build());
         Manager.getInstance().startCollectingData(null);
         ApplicationState.initialize(this);
         checkInterfaceUUID();

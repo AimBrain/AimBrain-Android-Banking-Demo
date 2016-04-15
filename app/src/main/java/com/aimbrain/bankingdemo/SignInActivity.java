@@ -7,7 +7,6 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.os.PersistableBundle;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.util.Log;
@@ -17,14 +16,12 @@ import android.widget.EditText;
 import android.widget.TextView;
 
 import com.aimbrain.sdk.faceCapture.FaceCaptureActivity;
+import com.aimbrain.sdk.faceCapture.VideoFaceCaptureActivity;
 import com.aimbrain.sdk.models.FaceAuthenticateModel;
-import com.aimbrain.sdk.models.FaceCompareModel;
 import com.aimbrain.sdk.models.FaceEnrollModel;
 import com.aimbrain.sdk.models.SessionModel;
-import com.aimbrain.sdk.server.FaceActions;
-import com.aimbrain.sdk.server.FaceCompareCallback;
-import com.aimbrain.sdk.server.PhotosAuthenticateCallback;
-import com.aimbrain.sdk.server.PhotosEnrollCallback;
+import com.aimbrain.sdk.server.FaceCapturesAuthenticateCallback;
+import com.aimbrain.sdk.server.FaceCapturesEnrollCallback;
 import com.android.volley.NetworkResponse;
 import com.android.volley.TimeoutError;
 import com.android.volley.VolleyError;
@@ -44,7 +41,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.net.ConnectException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -53,8 +49,9 @@ public class SignInActivity extends AppCompatActivity {
 
     private static final int enrollmentRequestcode = 1542;
     private static final int authenticationRequestcode = 1543;
-    private static final String photoAuthUpperText = "To authenticate please face the camera directly and press 'camera' button";
+    private static final String photoAuthUpperText = "To authenticate please face the camera directly, press 'camera' button and blink";
     private static final String photoLowerText = "Position your face fully within the outline with eyes between the lines.";
+    private static final String recordingHintAuthentication = "Please BLINK now...";
     private static final String[] enrollStepsTexts = {
             "To enroll please face the camera directly and press 'camera' button",
             "Face the camera slightly from the top and press 'camera' button",
@@ -216,10 +213,10 @@ public class SignInActivity extends AppCompatActivity {
                         Log.i("SESSION", "session id: " + session.getSessionId());
                         Log.i("SESSION", "session face status: " + session.getFaceStatus());
                         Log.i("SESSION", "session behaviour status: " + session.getBehaviourStatus());
-                        if (session.getFaceStatus() == SessionModel.UNAVAILABLE) {
+                        if (session.getFaceStatus() == SessionModel.BUILDING) {
                             new AlertDialog.Builder(SignInActivity.this)
                                     .setTitle("Face detection unavailable")
-                                    .setMessage("Face detection is currently not supported.")
+                                    .setMessage("Generating template. Please try again in a few seconds")
                                     .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                                         public void onClick(DialogInterface dialog, int which) {
                                         }
@@ -254,7 +251,7 @@ public class SignInActivity extends AppCompatActivity {
             public void onClick(DialogInterface dialog, int which) {
                 hideSpinner();
             }
-        }).show();
+        }).setCancelable(false).show();
     }
 
     private void enrollWithPhotos() {
@@ -274,7 +271,7 @@ public class SignInActivity extends AppCompatActivity {
     }
 
     private void authenticateWithPhotos() {
-        openFaceImageCaptureActivity(authenticationRequestcode, photoAuthUpperText, photoLowerText);
+        openFaceImageCaptureActivity(authenticationRequestcode, photoAuthUpperText, photoLowerText, recordingHintAuthentication);
     }
 
     @Override
@@ -282,12 +279,12 @@ public class SignInActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         switch (requestCode) {
             case enrollmentRequestcode:
-                if(resultCode != RESULT_OK){
+                if (resultCode != RESULT_OK) {
                     return;
                 }
 
                 try {
-                    Manager.getInstance().sendProvidedPhotosToEnroll(FaceCaptureActivity.images, new PhotosEnrollCallback() {
+                    Manager.getInstance().sendProvidedFaceCapturesToEnroll(VideoFaceCaptureActivity.video, new FaceCapturesEnrollCallback() {
                         @Override
                         public void success(FaceEnrollModel faceEnrollModel) {
                             triesAmount++;
@@ -298,16 +295,6 @@ public class SignInActivity extends AppCompatActivity {
                         public void failure(VolleyError volleyError) {
                             showRetryPhotosEnrollmentDialog("Please re-take the picture, reason: " + getErrorMessage(volleyError));
                         }
-
-                        @Override
-                        public void beforeSendRequest() {
-                            SignInActivity.this.runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    progressDialog = Spinner.showSpinner(SignInActivity.this);
-                                }
-                            });
-                        }
                     });
                 } catch (ConnectException | InternalException e) {
                     hideSpinner();
@@ -317,23 +304,23 @@ public class SignInActivity extends AppCompatActivity {
                 }
                 break;
             case authenticationRequestcode:
-                if(resultCode != RESULT_OK){
+                if (resultCode != RESULT_OK) {
                     return;
                 }
                 try {
-                    Manager.getInstance().sendProvidedPhotosToAuthenticate(FaceCaptureActivity.images, new PhotosAuthenticateCallback() {
+                    Manager.getInstance().sendProvidedFaceCapturesToAuthenticate(VideoFaceCaptureActivity.video, new FaceCapturesAuthenticateCallback() {
 
                         @Override
                         public void success(FaceAuthenticateModel faceAuthenticateModel) {
                             hideSpinner();
-                            if (faceAuthenticateModel.getScore() >= 0.5 && faceAuthenticateModel.getLiveliness() >= 0.5) {
-                                startDemoBankActivity();
-                            } else {
-                                if(faceAuthenticateModel.getLiveliness() < 0.5){
-                                    showRetryPhotosAuthDialog(String.format("Your face matched to %.0f%% but we believe it was a static image", faceAuthenticateModel.getScore() * 100));
-                                }else {
-                                    showRetryPhotosAuthDialog("Access denied");
+                            if (faceAuthenticateModel.getScore() >= 0.5) {
+                                if (faceAuthenticateModel.getLiveliness() >= 0.5) {
+                                    startDemoBankActivity();
+                                } else {
+                                    showRetryPhotosAuthDialog(String.format("Your face matched to %.0f%%, but it failed the liveliness test", faceAuthenticateModel.getScore() * 100));
                                 }
+                            } else {
+                                showRetryPhotosAuthDialog("Access denied");
                             }
                         }
 
@@ -342,15 +329,6 @@ public class SignInActivity extends AppCompatActivity {
                             showRetryPhotosAuthDialog("Please re-take the picutre, reason: " + getErrorMessage(volleyError));
                         }
 
-                        @Override
-                        public void beforeSendRequest() {
-                            SignInActivity.this.runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    progressDialog = Spinner.showSpinner(SignInActivity.this);
-                                }
-                            });
-                        }
                     });
                 } catch (ConnectException | InternalException e) {
                     hideSpinner();
@@ -362,11 +340,17 @@ public class SignInActivity extends AppCompatActivity {
         }
     }
 
+    private void openFaceImageCaptureActivity(int requestCode, String upperText, String lowerText) {
+        openFaceImageCaptureActivity(requestCode, upperText, lowerText, null);
+    }
 
-    private void openFaceImageCaptureActivity(int requestCode, String upperText, String lowerText){
-        Intent intent = new Intent(this, FaceCaptureActivity.class);
+    private void openFaceImageCaptureActivity(int requestCode, String upperText, String lowerText, String recordingHint) {
+        Intent intent = new Intent(this, VideoFaceCaptureActivity.class);
         intent.putExtra(FaceCaptureActivity.EXTRA_UPPER_TEXT, upperText);
         intent.putExtra(FaceCaptureActivity.EXTRA_LOWER_TEXT, lowerText);
+        if (recordingHint != null) {
+            intent.putExtra(FaceCaptureActivity.RECORDING_HINT, recordingHint);
+        }
         startActivityForResult(intent, requestCode);
 
     }
@@ -388,7 +372,7 @@ public class SignInActivity extends AppCompatActivity {
             public void onClick(DialogInterface dialog, int which) {
 
             }
-        }).show();
+        }).setCancelable(false).show();
     }
 
     private void showRetryPhotosEnrollmentDialog(String message) {
@@ -404,7 +388,7 @@ public class SignInActivity extends AppCompatActivity {
             public void onClick(DialogInterface dialog, int which) {
 
             }
-        }).show();
+        }).setCancelable(false).show();
     }
 
     private void startDemoBankActivity() {
