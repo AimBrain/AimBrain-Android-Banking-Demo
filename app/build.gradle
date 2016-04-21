@@ -42,7 +42,7 @@ android {
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
-    compile(name:'aimbrain-sdk-0.4.2', ext:'aar')
+    compile(name:'aimbrain-sdk-0.4.3', ext:'aar')
     compile 'com.mcxiaoke.volley:library:1.0.19'
     compile 'com.android.support:appcompat-v7:23.1.0'
     compile('com.crashlytics.sdk.android:crashlytics:2.5.5@aar') {
