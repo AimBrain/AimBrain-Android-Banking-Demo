@@ -14,8 +14,6 @@ import com.aimbrain.bankingdemo.helpers.Constants;
 
 public class LauncherActivity extends ActionBarActivity {
 
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

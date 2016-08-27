@@ -50,7 +50,7 @@ public class SignInActivity extends AppCompatActivity {
     private static final int enrollmentRequestcode = 1542;
     private static final int authenticationRequestcode = 1543;
     private static final String photoAuthUpperText = "To authenticate please face the camera directly, press 'camera' button and blink";
-    private static final String photoLowerText = "Position your face fully within the outline with eyes between the lines.";
+    private static final String photoLowerText = "Position your face fully within the outline.";
     private static final String recordingHintAuthentication = "Please BLINK now...";
     private static final String[] enrollStepsTexts = {
             "To enroll please face the camera directly and press 'camera' button",
