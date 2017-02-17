@@ -189,7 +189,7 @@
                 android:text="0"
                 android:id="@+id/faceEnrollButton"
                 android:onClick="faceEnrollButtonClick"
-                android:src="@drawable/ic_face_enroll"
+                android:src="@drawable/ic_enroll"
                 android:tint="#000000" />
             <Button
                 android:layout_width="match_parent"

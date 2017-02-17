@@ -28,12 +28,19 @@ android {
         applicationId "com.aimbrain.aimbrainexample"
         minSdkVersion 14
         targetSdkVersion 23
-        versionCode 5
-        versionName "2.0.3"
+        versionCode 6
+        versionName "2.0.4"
     }
 
     signingConfigs {
         staging {
+            storeFile file('KEYSTORE_LOC')
+            storePassword "KEYSTORE_PASS"
+            keyAlias "KEY_ALIAS"
+            keyPassword "KEY_PASS"
+        }
+
+        release {
             storeFile file('KEYSTORE_LOC')
             storePassword "KEYSTORE_PASS"
             keyAlias "KEY_ALIAS"
@@ -45,6 +52,7 @@ android {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
 
         staging.initWith(buildTypes.release)
@@ -57,7 +65,7 @@ android {
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
-    compile(name:'aimbrain-sdk-0.5.1', ext:'aar')
+    compile(name:'aimbrain-sdk-0.6.2', ext:'aar')
     compile 'com.mcxiaoke.volley:library:1.0.19'
     compile 'com.android.support:appcompat-v7:23.1.0'
     compile('com.crashlytics.sdk.android:crashlytics:2.6.2@aar') {

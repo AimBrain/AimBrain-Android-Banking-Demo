@@ -60,7 +60,6 @@ public class MainActivity extends AppCompatActivity {
         getSupportActionBar().setTitle("Registration");
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.GET_ACCOUNTS) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.GET_ACCOUNTS}, 1);
-
         }
     }
 
@@ -84,15 +83,22 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences prefs = this.getSharedPreferences(Constants.SHARED_PREFS_TAG, Context.MODE_PRIVATE);
         String interfaceUUID = prefs.getString(Constants.INTERFACE_UUID, null);
             try {
-            demoServer.register(email, interfaceUUID, getEmails(), new Response.Listener<JSONObject>() {
+                final String registeredEmail = email;
+                demoServer.register(registeredEmail, interfaceUUID, getEmails(), new Response.Listener<JSONObject>() {
                 @Override
                 public void onResponse(JSONObject response) {
+                    if (!registeredEmail.equals(email)) {
+                        return;
+                    }
                     try {
                         loginURL = response.getString("loginurl");
                         loginRetry = new Runnable() {
                             @Override
                             public void run() {
-                                verifyEmail();
+                                if (!registeredEmail.equals(email)) {
+                                    return;
+                                }
+                                verifyEmail(registeredEmail);
                             }
                         };
                         loginRetry.run();
@@ -104,6 +110,9 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onErrorResponse(VolleyError error) {
                     hideSpinner();
+                    if (!registeredEmail.equals(email)) {
+                        return;
+                    }
                     NetworkResponse response = error.networkResponse;
                     if(response != null && response.data != null){
                         switch(response.statusCode){
@@ -115,8 +124,6 @@ public class MainActivity extends AppCompatActivity {
                                 } catch (JSONException e) {
                                     e.printStackTrace();
                                 }
-
-
                                 if(errorMessage != null) {
                                     errorTextView.setText(errorMessage);
                                 }else{
@@ -137,12 +144,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void verifyEmail(){
+    private void verifyEmail(final String verifiedEmail){
         demoServer.login(loginURL, new Response.Listener<JSONObject>() {
             @Override
             public void onResponse(JSONObject response) {
+                hideSpinner();
+                if (!verifiedEmail.equals(email)) {
+                    return;
+                }
                 try {
-                    hideSpinner();
                     retryHandler.removeCallbacksAndMessages(null);
                     loginRetry = null;
                     String pin = response.getString("pin");
@@ -159,9 +169,11 @@ public class MainActivity extends AppCompatActivity {
         }, new Response.ErrorListener() {
             @Override
             public void onErrorResponse(VolleyError error) {
+                if (!verifiedEmail.equals(email)) {
+                    return;
+                }
                 String errorMessage = null;
                 if(error.networkResponse != null) {
-
                     try {
                         JSONObject json = new JSONObject(new String(error.networkResponse.data));
                         errorMessage = json.getString("error");
@@ -219,7 +231,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(DialogInterface dialog, int which) {
                 retryHandler.removeCallbacksAndMessages(null);
                 loginRetry = null;
-
+                email = null;
                 hideSpinner();
             }
         });
@@ -229,6 +241,7 @@ public class MainActivity extends AppCompatActivity {
                 if (keyCode == KeyEvent.KEYCODE_BACK) {
                     retryHandler.removeCallbacksAndMessages(null);
                     loginRetry = null;
+                    email = null;
                     hideSpinner();
                 }
                 return true;
@@ -236,7 +249,4 @@ public class MainActivity extends AppCompatActivity {
         });
         progressDialog.show();
     }
-
-
-
 }

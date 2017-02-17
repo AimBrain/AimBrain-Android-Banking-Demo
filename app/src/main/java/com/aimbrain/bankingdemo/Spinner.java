@@ -11,6 +11,7 @@ public class Spinner {
         dialog.setMessage("Please wait...");
         dialog.setIndeterminate(true);
         dialog.setCanceledOnTouchOutside(false);
+        dialog.setCancelable(false);
         dialog.show();
         return dialog;
     }

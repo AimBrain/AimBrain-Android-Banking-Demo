@@ -20,8 +20,16 @@ import com.aimbrain.sdk.faceCapture.VideoFaceCaptureActivity;
 import com.aimbrain.sdk.models.FaceAuthenticateModel;
 import com.aimbrain.sdk.models.FaceEnrollModel;
 import com.aimbrain.sdk.models.SessionModel;
+import com.aimbrain.sdk.models.VoiceAuthenticateModel;
+import com.aimbrain.sdk.models.VoiceEnrollModel;
+import com.aimbrain.sdk.models.VoiceTokenModel;
+import com.aimbrain.sdk.models.VoiceTokenType;
 import com.aimbrain.sdk.server.FaceCapturesAuthenticateCallback;
 import com.aimbrain.sdk.server.FaceCapturesEnrollCallback;
+import com.aimbrain.sdk.server.VoiceCaptureEnrollCallback;
+import com.aimbrain.sdk.server.VoiceCapturesAuthenticateCallback;
+import com.aimbrain.sdk.server.VoiceTokenCallback;
+import com.aimbrain.sdk.voiceCapture.VoiceCaptureActivity;
 import com.android.volley.NetworkResponse;
 import com.android.volley.TimeoutError;
 import com.android.volley.VolleyError;
@@ -49,16 +57,26 @@ public class SignInActivity extends AppCompatActivity {
 
     private static final int enrollmentRequestcode = 1542;
     private static final int authenticationRequestcode = 1543;
+    private static final int voiceEnrollmentRequestcode = 1544;
+    private static final int voiceAuthenticationRequestcode = 1545;
     private static final String photoAuthUpperText = "To authenticate please face the camera directly, press 'camera' button and blink";
     private static final String photoLowerText = "Position your face fully within the outline.";
-    private static final String recordingHintAuthentication = "Please BLINK now...";
-    private static final String[] enrollStepsTexts = {
+    private static final String faceAuthenticationHint = "Please BLINK now...";
+    private static final String[] faceEnrollStepsTexts = {
             "To enroll please face the camera directly and press 'camera' button",
             "Face the camera slightly from the top and press 'camera' button",
             "Face the camera slightly from the bottom and press 'camera' button",
             "Face the camera slightly from the left and press 'camera' button",
             "Face the camera slightly from the right and press 'camera' button"
     };
+    private static final String[] voiceEnrollStepsTexts = {
+            "To enroll please press 'microphone' button read text below",
+            "Please press 'microphone' button read the text below 2nd time",
+            "Please press 'microphone' button read the text below 3rd time",
+            "Please press 'microphone' button read the text below 4th time",
+            "Please press 'microphone' button read the text below the last time"
+    };
+    private static final String voiceAuthenticationHint = "To authenticate please press 'microphone' button and read text below";
 
 
     private Button signInButton;
@@ -68,12 +86,15 @@ public class SignInActivity extends AppCompatActivity {
     private ProgressDialog progressDialog;
     private TextView titleTextView;
     private int triesAmount;
+    private int voiceTriesAmount;
+    private boolean isActive;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState != null) {
             this.triesAmount = savedInstanceState.getInt("triesAmount");
+            this.voiceTriesAmount = savedInstanceState.getInt("voiceTriesAmount");
         }
         setContentView(R.layout.activity_sign_in);
 
@@ -120,8 +141,37 @@ public class SignInActivity extends AppCompatActivity {
 
 
     public void faceEnrollButtonClick(View view) {
+        final CharSequence[] items = {getString(R.string.auth_type_face), getString(R.string.auth_type_voice) };
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.title_select_auth_type));
+        builder.setPositiveButton("Cancel", null);
+        builder.setItems(items, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int item) {
+                if (item == 0) {
+                    //face selected
+                    faceAuthType();
+                } else {
+                    //voice selected
+                    voiceAuthType();
+                }
+            }
+        });
+        AlertDialog alert = builder.create();
+        alert.show();
+    }
+
+    private void faceAuthType() {
         try {
             createSessionUsingPhoto();
+        } catch (ConnectException | InternalException e) {
+            hideSpinner();
+            errorTextView.setText(e.getMessage());
+        }
+    }
+
+    private void voiceAuthType() {
+        try {
+            createSessionUsingVoice();
         } catch (ConnectException | InternalException e) {
             hideSpinner();
             errorTextView.setText(e.getMessage());
@@ -132,6 +182,7 @@ public class SignInActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         errorTextView.setText("");
+        isActive = true;
     }
 
     @Override
@@ -150,12 +201,13 @@ public class SignInActivity extends AppCompatActivity {
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putInt("triesAmount", triesAmount);
+        outState.putInt("voiceTriesAmount", voiceTriesAmount);
     }
 
     @Override
     protected void onPause() {
-        hideSpinner();
         super.onPause();
+        isActive = false;
     }
 
     private void createSessionUsingPin() throws ConnectException, InternalException {
@@ -165,6 +217,9 @@ public class SignInActivity extends AppCompatActivity {
                     @Override
                     public void onSessionCreated(SessionModel session) {
                         hideSpinner();
+                        if (!isActive) {
+                            return;
+                        }
                         Log.i("SESSION", "session id: " + session.getSessionId());
                         Log.i("SESSION", "session face status: " + session.getFaceStatus());
                         Log.i("SESSION", "session behaviour status: " + session.getBehaviourStatus());
@@ -173,6 +228,7 @@ public class SignInActivity extends AppCompatActivity {
                 }, new AMBNResponseErrorListener() {
                     @Override
                     public void onErrorResponse(VolleyError error) {
+                        hideSpinner();
                         errorTextView.setText(getErrorMessage(error));
                     }
                 }
@@ -181,7 +237,6 @@ public class SignInActivity extends AppCompatActivity {
     }
 
     private String getErrorMessage(VolleyError error) {
-        hideSpinner();
         String json = null;
         String errorMessage = null;
         NetworkResponse response = error.networkResponse;
@@ -210,9 +265,14 @@ public class SignInActivity extends AppCompatActivity {
         Manager.getInstance().createSession(getUserId(), getApplicationContext(), new SessionCallback() {
                     @Override
                     public void onSessionCreated(SessionModel session) {
+                        hideSpinner();
+                        if (!isActive) {
+                            return;
+                        }
                         Log.i("SESSION", "session id: " + session.getSessionId());
                         Log.i("SESSION", "session face status: " + session.getFaceStatus());
                         Log.i("SESSION", "session behaviour status: " + session.getBehaviourStatus());
+                        Log.i("SESSION", "session voice status: " + session.getVoiceStatus());
                         if (session.getFaceStatus() == SessionModel.BUILDING) {
                             new AlertDialog.Builder(SignInActivity.this)
                                     .setTitle("Face detection unavailable")
@@ -231,6 +291,7 @@ public class SignInActivity extends AppCompatActivity {
                 }, new AMBNResponseErrorListener() {
                     @Override
                     public void onErrorResponse(VolleyError error) {
+                        hideSpinner();
                         errorTextView.setText(getErrorMessage(error));
                     }
                 }
@@ -249,15 +310,13 @@ public class SignInActivity extends AppCompatActivity {
                 }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                hideSpinner();
             }
         }).setCancelable(false).show();
     }
 
     private void enrollWithPhotos() {
-
         if (triesAmount < 5) {
-            openFaceImageCaptureActivity(enrollmentRequestcode, enrollStepsTexts[triesAmount], photoLowerText);
+            openFaceImageCaptureActivity(enrollmentRequestcode, faceEnrollStepsTexts[triesAmount], photoLowerText);
         } else {
             hideSpinner();
             new AlertDialog.Builder(SignInActivity.this)
@@ -271,7 +330,124 @@ public class SignInActivity extends AppCompatActivity {
     }
 
     private void authenticateWithPhotos() {
-        openFaceImageCaptureActivity(authenticationRequestcode, photoAuthUpperText, photoLowerText, recordingHintAuthentication);
+        openFaceImageCaptureActivity(authenticationRequestcode, photoAuthUpperText, photoLowerText, faceAuthenticationHint);
+    }
+
+    private void createSessionUsingVoice() throws ConnectException, InternalException {
+        progressDialog = Spinner.showSpinner(this);
+        Manager.getInstance().createSession(getUserId(), getApplicationContext(), new SessionCallback() {
+                    @Override
+                    public void onSessionCreated(SessionModel session) {
+                        hideSpinner();
+                        if (!isActive) {
+                            return;
+                        }
+                        Log.i("SESSION", "session id: " + session.getSessionId());
+                        Log.i("SESSION", "session face status: " + session.getFaceStatus());
+                        Log.i("SESSION", "session behaviour status: " + session.getBehaviourStatus());
+                        Log.i("SESSION", "session voice status: " + session.getVoiceStatus());
+                        if (session.getVoiceStatus() == SessionModel.BUILDING) {
+                            new AlertDialog.Builder(SignInActivity.this)
+                                    .setTitle("Voice detection unavailable")
+                                    .setMessage("Generating template. Please try again in a few seconds")
+                                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                                        public void onClick(DialogInterface dialog, int which) {
+                                        }
+                                    })
+                                    .show();
+                        } else if (session.getVoiceStatus() == SessionModel.ENROLLED) {
+                            authenticateWithVoice();
+                        } else if (session.getVoiceStatus() == SessionModel.NOT_ENROLLED) {
+                            showVoiceEnrollmentDialog();
+                        }
+                    }
+                }, new AMBNResponseErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        hideSpinner();
+                        errorTextView.setText(getErrorMessage(error));
+                    }
+                }
+        );
+    }
+
+    private void showVoiceEnrollmentDialog() {
+        new AlertDialog.Builder(SignInActivity.this)
+                .setMessage("Please enroll  before using Voice authentication")
+                .setPositiveButton("Continue", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        voiceTriesAmount = 0;
+                        enrollWithVoice();
+                    }
+                }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                hideSpinner();
+            }
+        }).setCancelable(false).show();
+    }
+
+    private void enrollWithVoice() {
+        if (voiceTriesAmount < 5) {
+            VoiceTokenType tokenType = VoiceTokenType.ENROLL1;
+            switch (voiceTriesAmount) {
+                case 0: tokenType = VoiceTokenType.ENROLL1;
+                    break;
+                case 1: tokenType = VoiceTokenType.ENROLL2;
+                    break;
+                case 2: tokenType = VoiceTokenType.ENROLL3;
+                    break;
+                case 3: tokenType = VoiceTokenType.ENROLL4;
+                    break;
+                case 4: tokenType = VoiceTokenType.ENROLL5;
+                    break;
+            }
+
+            Log.d("SignInActivity", "Voice token type " + tokenType.toString());
+            try {
+                progressDialog = Spinner.showSpinner(this);
+                Manager.getInstance().getVoiceToken(tokenType, new VoiceTokenCallback() {
+                    @Override
+                    public void success(VoiceTokenModel tokenModel) {
+                        hideSpinner();
+                        if (!isActive) {
+                            return;
+                        }
+                        openVoiceCaptureActivity(voiceEnrollmentRequestcode, voiceEnrollStepsTexts[voiceTriesAmount],
+                                tokenModel.getToken());
+                    }
+                });
+            } catch (InternalException | SessionException | ConnectException e) {
+                Log.e("signingActivity", "voiceEnroll", e);
+            }
+        }
+        else {
+            hideSpinner();
+            new AlertDialog.Builder(SignInActivity.this)
+                    .setMessage("Enrollment finished successfully")
+                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                        }
+                    }).show();
+        }
+    }
+
+    private void authenticateWithVoice() {
+        try {
+            progressDialog = Spinner.showSpinner(this);
+            Manager.getInstance().getVoiceToken(VoiceTokenType.AUTH, new VoiceTokenCallback() {
+                @Override
+                public void success(VoiceTokenModel tokenModel) {
+                    hideSpinner();
+                    if (!isActive) {
+                        return;
+                    }
+                    openVoiceCaptureActivity(voiceAuthenticationRequestcode, voiceAuthenticationHint, tokenModel.getToken());
+                }
+            });
+        } catch (InternalException | SessionException | ConnectException e) {
+            Log.e("signingActivity", "voiceEnroll", e);
+        }
     }
 
     @Override
@@ -284,15 +460,24 @@ public class SignInActivity extends AppCompatActivity {
                 }
 
                 try {
+                    progressDialog = Spinner.showSpinner(this);
                     Manager.getInstance().sendProvidedFaceCapturesToEnroll(VideoFaceCaptureActivity.video, new FaceCapturesEnrollCallback() {
                         @Override
                         public void success(FaceEnrollModel faceEnrollModel) {
+                            hideSpinner();
+                            if (!isActive) {
+                                return;
+                            }
                             triesAmount++;
                             enrollWithPhotos();
                         }
 
                         @Override
                         public void failure(VolleyError volleyError) {
+                            hideSpinner();
+                            if (!isActive) {
+                                return;
+                            }
                             showRetryPhotosEnrollmentDialog("Please re-take the picture, reason: " + getErrorMessage(volleyError));
                         }
                     });
@@ -300,7 +485,8 @@ public class SignInActivity extends AppCompatActivity {
                     hideSpinner();
                     showRetryPhotosEnrollmentDialog("Please re-take the picture, reason: " + e.getMessage());
                 } catch (SessionException e) {
-                    e.printStackTrace();
+                    hideSpinner();
+                    Log.e("signingActivity", "sendProvidedFaceCapturesToEnroll", e);
                 }
                 break;
             case authenticationRequestcode:
@@ -308,11 +494,14 @@ public class SignInActivity extends AppCompatActivity {
                     return;
                 }
                 try {
+                    progressDialog = Spinner.showSpinner(this);
                     Manager.getInstance().sendProvidedFaceCapturesToAuthenticate(VideoFaceCaptureActivity.video, new FaceCapturesAuthenticateCallback() {
-
                         @Override
                         public void success(FaceAuthenticateModel faceAuthenticateModel) {
                             hideSpinner();
+                            if (!isActive) {
+                                return;
+                            }
                             if (faceAuthenticateModel.getScore() >= 0.5) {
                                 if (faceAuthenticateModel.getLiveliness() >= 0.5) {
                                     startDemoBankActivity();
@@ -326,15 +515,95 @@ public class SignInActivity extends AppCompatActivity {
 
                         @Override
                         public void failure(VolleyError volleyError) {
+                            hideSpinner();
+                            if (!isActive) {
+                                return;
+                            }
                             showRetryPhotosAuthDialog("Please re-take the picutre, reason: " + getErrorMessage(volleyError));
                         }
-
                     });
                 } catch (ConnectException | InternalException e) {
                     hideSpinner();
                     showRetryPhotosAuthDialog(e.getMessage());
                 } catch (SessionException e) {
-                    e.printStackTrace();
+                    hideSpinner();
+                    Log.e("signingActivity", "sendProvidedFaceCapturesToAuthenticate", e);
+                }
+                break;
+            case voiceEnrollmentRequestcode:
+                if (resultCode != RESULT_OK) {
+                    return;
+                }
+                try {
+                    progressDialog = Spinner.showSpinner(this);
+                    Manager.getInstance().sendProvidedVoiceCapturesToEnroll(VoiceCaptureActivity.audio, new VoiceCaptureEnrollCallback() {
+                        @Override
+                        public void success(VoiceEnrollModel faceEnrollModel) {
+                            hideSpinner();
+                            if (!isActive) {
+                                return;
+                            }
+                            Log.d("signingActivity", "success " + faceEnrollModel.getVoiceSamples());
+                            voiceTriesAmount++;
+                            enrollWithVoice();
+                        }
+
+                        @Override
+                        public void failure(VolleyError volleyError) {
+                            hideSpinner();
+                            if (!isActive) {
+                                return;
+                            }
+                            showRetryVoiceEnrollmentDialog("Please retry, reason: " + getErrorMessage(volleyError));
+                        }
+                    });
+                } catch (ConnectException | InternalException e) {
+                    hideSpinner();
+                    showRetryVoiceEnrollmentDialog("Please retry, reason: " + e.getMessage());
+                } catch (SessionException e) {
+                    hideSpinner();
+                    Log.e("signingActivity", "sendProvidedVoiceCapturesToEnroll", e);
+                }
+                break;
+            case voiceAuthenticationRequestcode:
+                if (resultCode != RESULT_OK) {
+                    return;
+                }
+                try {
+                    progressDialog = Spinner.showSpinner(this);
+                    Manager.getInstance().sendProvidedVoiceCapturesToAuthenticate(VoiceCaptureActivity.audio, new VoiceCapturesAuthenticateCallback() {
+                        @Override
+                        public void success(VoiceAuthenticateModel voiceAuthenticateModel) {
+                            hideSpinner();
+                            if (!isActive) {
+                                return;
+                            }
+                            if (voiceAuthenticateModel.getScore() >= 0.5) {
+                                if (voiceAuthenticateModel.getLiveliness() >= 0.5) {
+                                    startDemoBankActivity();
+                                } else {
+                                    showRetryVoiceAuthDialog(String.format("Your voice matched to %.0f%%, but it failed the liveliness test", voiceAuthenticateModel.getScore() * 100));
+                                }
+                            } else {
+                                showRetryVoiceAuthDialog("Access denied");
+                            }
+                        }
+
+                        @Override
+                        public void failure(VolleyError volleyError) {
+                            hideSpinner();
+                            if (!isActive) {
+                                return;
+                            }
+                            showRetryVoiceAuthDialog("Please retry again, reason: " + getErrorMessage(volleyError));
+                        }
+                    });
+                } catch (ConnectException | InternalException e) {
+                    hideSpinner();
+                    showRetryVoiceAuthDialog(e.getMessage());
+                } catch (SessionException e) {
+                    hideSpinner();
+                    Log.e("signingActivity", "sendProvidedVoiceCapturesToAuthenticate", e);
                 }
                 break;
         }
@@ -352,7 +621,6 @@ public class SignInActivity extends AppCompatActivity {
             intent.putExtra(FaceCaptureActivity.RECORDING_HINT, recordingHint);
         }
         startActivityForResult(intent, requestCode);
-
     }
 
     private void showRetryPhotosAuthDialog(String message) {
@@ -382,6 +650,48 @@ public class SignInActivity extends AppCompatActivity {
                 .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
                         enrollWithPhotos();
+                    }
+                }).setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+
+            }
+        }).setCancelable(false).show();
+    }
+
+    private void openVoiceCaptureActivity(int requestCode, String upperText, String recordingToken) {
+        Intent intent = new Intent(this, VoiceCaptureActivity.class);
+        intent.putExtra(VoiceCaptureActivity.EXTRA_UPPER_TEXT, upperText);
+        intent.putExtra(VoiceCaptureActivity.EXTRA_RECORDING_HINT, recordingToken);
+        startActivityForResult(intent, requestCode);
+    }
+
+    private void showRetryVoiceAuthDialog(String message) {
+        new AlertDialog.Builder(SignInActivity.this)
+                .setMessage(message)
+                .setPositiveButton("Retry", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        try {
+                            createSessionUsingVoice();
+                        } catch (ConnectException | InternalException e) {
+                            hideSpinner();
+                            errorTextView.setText(e.getMessage());
+                        }
+                    }
+                }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+            }
+        }).setCancelable(false).show();
+    }
+
+    private void showRetryVoiceEnrollmentDialog(String message) {
+        new AlertDialog.Builder(SignInActivity.this)
+                .setTitle("Error")
+                .setMessage(message + (message.endsWith(".") ? " " : ". ") + " Do you want to try again?")
+                .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        enrollWithVoice();
                     }
                 }).setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
             @Override
@@ -444,7 +754,7 @@ public class SignInActivity extends AppCompatActivity {
                 }
             });
         } catch (InternalException | ConnectException | SessionException e) {
-            e.printStackTrace();
+            Log.e("signingActivity", "submitCollectedData", e);
         }
     }
 }

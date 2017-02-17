@@ -12,7 +12,9 @@
     <string name="title_activity_transactions">TransactionsActivity</string>
     <string name="title_activity_launcher">LauncherActivity</string>
 
-<!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
-    <string name="title_activity_email_confirmation">EmailConfirmationActivity</string>
+    <string name="title_select_auth_type">Please choose:</string>
+    <string name="auth_type_voice">Voice authentication</string>
+    <string name="auth_type_face">Facial authentication</string>
+
+    <string name="title_activity_email_confirmation">Email confirmation</string>
 </resources>
